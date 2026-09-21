@@ -1,0 +1,168 @@
+{
+  "name": "hanshuang-free",
+  "version": "4.4.0",
+  "private": true,
+  "description": "寒霜破甲工具 · 桌面版",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite",
+    "dev:electron": "electron .",
+    "build": "vite build",
+    "start": "npm run build && electron .",
+    "dist": "node scripts/build.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^1.45.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^4.6.0",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0"
+  },
+  "build": {
+    "appId": "com.hanshuang.desktop",
+    "productName": "寒霜破甲工具",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "dist/**/*",
+      "package.json",
+      "variant.json"
+    ],
+    "extraResources": [
+      {
+        "from": "install.ps1",
+        "to": "install.ps1"
+      },
+      {
+        "from": "scripts/clear-injected-prompts.ps1",
+        "to": "scripts/clear-injected-prompts.ps1"
+      },
+      {
+        "from": "install-zcode.ps1",
+        "to": "install-zcode.ps1"
+      },
+      {
+        "from": "install-claude.ps1",
+        "to": "install-claude.ps1"
+      },
+      {
+        "from": "install-cursor.ps1",
+        "to": "install-cursor.ps1"
+      },
+      {
+        "from": "install-workbuddy.ps1",
+        "to": "install-workbuddy.ps1"
+      },
+      {
+        "from": "install-doubao.ps1",
+        "to": "install-doubao.ps1"
+      },
+      {
+        "from": "install-dsh.ps1",
+        "to": "install-dsh.ps1"
+      },
+      {
+        "from": "寒霜v5.md",
+        "to": "寒霜v5.md"
+      },
+      {
+        "from": "寒霜v4.md",
+        "to": "寒霜v4.md"
+      },
+      {
+        "from": "寒霜v4-claude.md",
+        "to": "寒霜v4-claude.md"
+      },
+      {
+        "from": "寒霜v3.md",
+        "to": "寒霜v3.md"
+      },
+      {
+        "from": "寒霜v1.2.md",
+        "to": "寒霜v1.2.md"
+      },
+      {
+        "from": "寒霜-变体B-v3-英文.md",
+        "to": "寒霜-变体B-v3-英文.md"
+      },
+      {
+        "from": "codex-skills-v4",
+        "to": "codex-skills-v4"
+      },
+      {
+        "from": "codex-skills",
+        "to": "codex-skills"
+      },
+      {
+        "from": "codex-skills-v5",
+        "to": "codex-skills-v5"
+      },
+      {
+        "from": "codex-bundle-v5",
+        "to": "codex-bundle-v5"
+      },
+      {
+        "from": "dsh-lazy-pack-v5",
+        "to": "dsh-lazy-pack-v5"
+      },
+      {
+        "from": "gpt-6-astra-v1/gpt-6-astra-v1",
+        "to": "gpt-6-astra-v1"
+      },
+      {
+        "from": "gpt-6-astra-v1/gpt-5.6-sol-unrestricted-v45.md",
+        "to": "gpt-6-astra-v1/gpt-5.6-sol-unrestricted-v45.md"
+      },
+      {
+        "from": "memory",
+        "to": "memory"
+      },
+      {
+        "from": "build/icon-256.png",
+        "to": "icon.png"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "寒霜破甲工具-免安装版-${version}.${ext}"
+    },
+    "nsis": {
+      "artifactName": "寒霜破甲工具-安装版-${version}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "寒霜破甲工具",
+      "uninstallDisplayName": "寒霜破甲工具",
+      "deleteAppDataOnUninstall": true,
+      "include": "build/installer.nsh"
+    }
+  }
+}

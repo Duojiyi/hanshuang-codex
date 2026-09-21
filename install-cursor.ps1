@@ -145,6 +145,10 @@ function Get-LegacyRulePaths {
         }
         if (-not $exists -or $isOurs) { $result += $legacy }
     }
+    # 旧版注入器还往用户主目录写过 .cursorrules，工作区扫描扫不到那里。
+    # 卸载时按标记判断，只删带寒霜标记的那份，用户自己的规则不动。
+    $homeLegacy = Join-Path $HOME $legacyRuleFile
+    if ($result -notcontains $homeLegacy) { $result += $homeLegacy }
     return @($result | Select-Object -Unique)
 }
 

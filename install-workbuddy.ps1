@@ -198,9 +198,14 @@ if (-not $SkillsSource) { $SkillsSource = if ($Version -eq 'v4') { 'codex-skills
 $skillsSourceDir = Join-Path $Root $SkillsSource
 
 $InstallRoot = Resolve-InstallRoot $InstallRoot
+# 是否由调用方显式指定了数据目录（国内版固定传 ~/.workbuddy）
+$configDirPinned = -not [string]::IsNullOrWhiteSpace($ConfigDir)
 $ConfigDir = Resolve-ConfigDir $ConfigDir $InstallRoot
-# 跨账户兜底：本账户目录里没有 WorkBuddy 数据（memory 子目录）时，改用它账户下真实存在的那份
-if (-not (Test-Path -LiteralPath (Join-Path $ConfigDir 'memory'))) {
+# 跨账户兜底：本账户目录里没有 WorkBuddy 数据（memory 子目录）时，改用它账户下真实存在的那份。
+# 但显式指定数据目录时不能兜底：国内版固定 ~/.workbuddy，该目录在首次登录前还没有 memory，
+# 一兜底就会切到国际版 ~/.workbuddy-ai（或别的 Windows 账户），整份注入跑到另一个版本上，
+# 表现为「只装国内版时注入有时失败」。
+if (-not $configDirPinned -and -not (Test-Path -LiteralPath (Join-Path $ConfigDir 'memory'))) {
     $others = @(Find-OtherProfileConfigDirs $ConfigDir |
         Where-Object { Test-Path -LiteralPath (Join-Path $_ 'memory') })
     if ($others.Count -gt 0) {
@@ -262,6 +267,40 @@ function Get-SkillNames([string]$dir) {
     if (-not (Test-Path -LiteralPath $dir)) { return @() }
     return @(Get-ChildItem -LiteralPath $dir -Directory -ErrorAction SilentlyContinue |
         Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'SKILL.md') } | ForEach-Object { $_.Name })
+}
+
+# 汇总随包分发的各版本技能库里的技能名（识别历史遗留用）。
+# 不能只看安装清单：清单只记录最后一次，装新版后旧记录就被覆盖了。
+function Get-ShippedSkillNames {
+    $names = @()
+    foreach ($lib in @('codex-skills', 'codex-skills-v3', 'codex-skills-v4', 'codex-skills-v5')) {
+        $dir = Join-Path $PSScriptRoot $lib
+        if (-not (Test-Path -LiteralPath $dir)) { continue }
+        $names += @(Get-ChildItem -LiteralPath $dir -Directory -ErrorAction SilentlyContinue |
+            Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'SKILL.md') } |
+            Select-Object -ExpandProperty Name)
+    }
+    return @($names | Select-Object -Unique)
+}
+
+# 清理旧版本遗留技能。候选 = 上次安装清单 ∪ 随包各版本技能库；
+# 只删同时满足：属于候选、当前版本已没有、目录下确实有 SKILL.md。
+# 用户自己放进 skills 目录、寒霜从未分发过的，一条都不沾。
+function Prune-StaleSkills([string]$Target, [string[]]$Previous, [string[]]$Current) {
+    $removed = @()
+    $candidates = @()
+    if ($Previous) { $candidates += $Previous }
+    $candidates += Get-ShippedSkillNames
+    $candidates = @($candidates | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique)
+    foreach ($n in $candidates) {
+        if ($Current -contains $n) { continue }
+        $dest = Join-Path $Target $n
+        if (-not (Test-Path -LiteralPath $dest)) { continue }
+        if (-not (Test-Path -LiteralPath (Join-Path $dest 'SKILL.md'))) { continue }
+        Remove-Item -LiteralPath $dest -Recurse -Force -ErrorAction SilentlyContinue
+        $removed += $n
+    }
+    return $removed
 }
 
 # ---------- 状态 ----------
@@ -443,6 +482,14 @@ if ($NoSkills) {
     Write-Host "[$steps] skills 未执行（找不到 $skillsSourceDir）" -ForegroundColor Yellow
 } else {
     New-Item -ItemType Directory -Path $skillsDir -Force | Out-Null
+    # 上一次安装清单里记过哪些技能（新版装完按它清理旧版遗留）
+    $prevSkills = @()
+    if (Test-Path -LiteralPath $manifestFile) {
+        try {
+            $prevManifest = Read-Utf8 $manifestFile | ConvertFrom-Json
+            if ($prevManifest.skills) { $prevSkills = @($prevManifest.skills.PSObject.Properties.Name) }
+        } catch {}
+    }
     $manifest = [ordered]@{ source = $SkillsSource; installedAt = $now; prompt = (Split-Path -Leaf $SourcePrompt); skills = [ordered]@{} }
     foreach ($name in Get-SkillNames $skillsSourceDir) {
         $s = Join-Path $skillsSourceDir $name; $d = Join-Path $skillsDir $name
@@ -452,6 +499,11 @@ if ($NoSkills) {
     }
     Write-Utf8 $manifestFile (($manifest | ConvertTo-Json -Depth 6) + "`n")
     $installedNames = @($manifest.skills.Keys)
+    # 清掉上一版遗留、新版技能库里已移除的技能
+    $staleSkills = Prune-StaleSkills $skillsDir $prevSkills $installedNames
+    if ($staleSkills.Count -gt 0) {
+        Write-Host "[$steps] 已清理旧版遗留 skills $($staleSkills.Count) 个" -ForegroundColor DarkGray
+    }
     # 清掉可能把这些技能禁用的 override（settings.json 的 skillOverrides：无 key = 启用）
     Set-SkillOverrides $settingsFile $installedNames $true
     $steps++

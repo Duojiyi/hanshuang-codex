@@ -1,44 +1,40 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-.venv/
-venv/
-env/
-
-# Build artifacts
+# 依赖与构建产物
+node_modules/
 dist/
-build_log*.txt
+release/
+.electron-builder.*.json
+*.blockmap
 
-# Backup files
-*.bak
-*.bak2
-build/
-dist_nuitka/
-*.spec.bak
-*.spec.orig
-*.log
-*.db
-*.pyc
-*.pyo
-
-# Runtime artifacts (generated, not version-controlled)
+# 运行时产物
 logs/
-memory.json
+*.log
 install-state.json
-
-# Environment
+memory.json
 .env
 .env.local
 
-# IDE
+# 旧版 Python 工具遗留
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+build_log*.txt
+dist_nuitka/
+
+# 备份
+*.bak
+*.bak2
+*.spec.bak
+*.spec.orig
+*.db
+
+# IDE / OS
 .vscode/
 .idea/
 *.swp
-*~
 *.swo
-
-# OS
+*~
 .DS_Store
 Thumbs.db
 desktop.ini

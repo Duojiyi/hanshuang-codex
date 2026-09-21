@@ -31,9 +31,66 @@ function Get-Sha256Hex([string]$Text) {
 }
 
 # 快速复制技能目录：robocopy 多线程，比 Copy-Item 快 10 倍以上（杀软扫描也不会卡几十分钟）
+# 目标已是最新时直接跳过整棵树的复制。
+# 重装（UI 上的"重新安装"）绝大多数文件没变，跳过能省掉全部磁盘写入 ——
+# 实测这一步是被杀软实时扫描拖慢的主因，跳过比复制快一个数量级。
+function Test-TreeCurrent([string]$Src, [string]$Dest) {
+    if (-not (Test-Path -LiteralPath $Dest)) { return $false }
+    $s = @(Get-ChildItem -LiteralPath $Src -Recurse -File -ErrorAction SilentlyContinue)
+    if ($s.Count -eq 0) { return $true }
+    foreach ($f in $s) {
+        $rel = $f.FullName.Substring($Src.Length).TrimStart('')
+        $d = Join-Path $Dest $rel
+        if (-not (Test-Path -LiteralPath $d)) { return $false }
+        $di = Get-Item -LiteralPath $d -ErrorAction SilentlyContinue
+        if ($null -eq $di) { return $false }
+        if ($di.Length -ne $f.Length) { return $false }
+        if ([Math]::Abs(($di.LastWriteTimeUtc - $f.LastWriteTimeUtc).TotalSeconds) -gt 2) { return $false }
+    }
+    return $true
+}
+
 function Copy-ManyFiles([string]$Src, [string]$Dest) {
+    if (Test-TreeCurrent $Src $Dest) {
+        Write-Host ("  up-to-date, skipped: " + (Split-Path $Dest -Leaf))
+        return
+    }
     robocopy $Src $Dest /E /MIR /MT:16 /R:1 /W:1 /NFL /NDL /NJH /NJS /NC /NS /NP | Out-Null
     if ($LASTEXITCODE -ge 8) { throw "robocopy failed with exit code $LASTEXITCODE for $Src" }
+}
+
+# 汇总随包分发的各版本技能库里的技能名（识别历史遗留用）。
+# 不能只看安装清单：清单只记录最后一次，装新版后旧记录就被覆盖了。
+function Get-ShippedSkillNames {
+    $names = @()
+    foreach ($lib in @('codex-skills', 'codex-skills-v3', 'codex-skills-v4', 'codex-skills-v5')) {
+        $dir = Join-Path $PSScriptRoot $lib
+        if (-not (Test-Path -LiteralPath $dir)) { continue }
+        $names += @(Get-ChildItem -LiteralPath $dir -Directory -ErrorAction SilentlyContinue |
+            Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'SKILL.md') } |
+            Select-Object -ExpandProperty Name)
+    }
+    return @($names | Select-Object -Unique)
+}
+
+# 清理旧版本遗留技能。候选 = 上次安装清单 ∪ 随包各版本技能库；
+# 只删同时满足：属于候选、当前版本已没有、目录下确实有 SKILL.md。
+# 用户自己放进 skills 目录、寒霜从未分发过的，一条都不沾。
+function Prune-StaleSkills([string]$Target, [string[]]$Previous, [string[]]$Current) {
+    $removed = @()
+    $candidates = @()
+    if ($Previous) { $candidates += $Previous }
+    $candidates += Get-ShippedSkillNames
+    $candidates = @($candidates | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Unique)
+    foreach ($n in $candidates) {
+        if ($Current -contains $n) { continue }
+        $dest = Join-Path $Target $n
+        if (-not (Test-Path -LiteralPath $dest)) { continue }
+        if (-not (Test-Path -LiteralPath (Join-Path $dest 'SKILL.md'))) { continue }
+        Remove-Item -LiteralPath $dest -Recurse -Force -ErrorAction SilentlyContinue
+        $removed += $n
+    }
+    return $removed
 }
 
 # ---------- 路径解析 ----------
@@ -226,6 +283,24 @@ if ($Uninstall) {
             }
         }
 
+        # 2.6 还原 setting.json 的 memoryEnabled。
+        #     安装时我们把它从 false 改成了 true（为了让它读注入的记忆文件），
+        #     但那是改用户的配置 —— 只在我们确实改过（state 有记录）时才还回去，
+        #     用户自己开的记忆功能不动。
+        if ($state -and $state.memoryEnabledChanged) {
+            $settingPath = Join-Path $ZcodeHome 'v2\setting.json'
+            if (Test-Path -LiteralPath $settingPath) {
+                try {
+                    $st = Read-Utf8 $settingPath
+                    if ($st -match '"memoryEnabled"\s*:\s*true') {
+                        $st = $st -replace '"memoryEnabled"\s*:\s*true', '"memoryEnabled": false'
+                        Write-Utf8NoBom $settingPath $st
+                        Write-Host "Restored setting.json: memoryEnabled -> false"
+                    }
+                } catch { }
+            }
+        }
+
         # 3. 恢复系统提示词（关键修复：state 缺 systemPromptPath 时必须重新探测，
         #    否则被 patch 的 zcode.cjs 残留 → 卸载后还是注入状态）
         $cjsFixed = $true
@@ -308,6 +383,7 @@ try {
 
     # 2. 安装记忆（从完整版提示词生成 seagull-agents.md）
     $installedMemories = @()
+    $memoryEnabledChanged = $false   # 记下「我们动过 setting.json」，卸载时才知道要还回去
     if (Test-Path -LiteralPath $MemorySourcePrompt -PathType Leaf) {
         New-Item -ItemType Directory -Force -Path $memoryRoot | Out-Null
         # 开启 zcode 记忆功能（setting.json 的 memoryEnabled）
@@ -318,6 +394,7 @@ try {
                 if ($st -match '"memoryEnabled"\s*:\s*false') {
                     $st = $st -replace '"memoryEnabled"\s*:\s*false', '"memoryEnabled": true'
                     Write-Utf8NoBom $settingPath $st
+                    $memoryEnabledChanged = $true
                     Write-Host "      Memory enabled: setting.json -> true"
                 }
             } catch { }
@@ -344,6 +421,15 @@ try {
         Write-Host "[2/4] No memory source at $MemorySourcePrompt, skipped"
     }
 
+    # 先读上一次安装写下的技能清单（新版装完要按它清理旧版遗留）
+    $prevSkills = @()
+    if (Test-Path -LiteralPath $statePath) {
+        try {
+            $prevState = Read-Utf8 $statePath | ConvertFrom-Json
+            if ($prevState.installedSkills) { $prevSkills = @($prevState.installedSkills) }
+        } catch {}
+    }
+
     # 2.5 同步技能到 zcode（默认 codex-skills，V4 可传 codex-skills-v4；robocopy 加速）
     $installedSkills = @()
     if ([string]::IsNullOrWhiteSpace($SkillsSource)) {
@@ -363,6 +449,10 @@ try {
             }
             Copy-ManyFiles $d.FullName $dest
             $installedSkills += $d.Name
+        }
+        $staleSkills = Prune-StaleSkills $skillsTarget $prevSkills $installedSkills
+        if ($staleSkills.Count -gt 0) {
+            Write-Host "[2.5/4] Pruned $($staleSkills.Count) stale skills from previous version"
         }
         Write-Host "[2.5/4] Synced $($installedSkills.Count) skills -> $skillsTarget"
     } else {
@@ -427,6 +517,7 @@ try {
         installedSkills = $installedSkills
         systemPromptPath = $systemPromptPath
         systemPromptBackup = $systemPromptBackup
+        memoryEnabledChanged = $memoryEnabledChanged
     }
     Write-Utf8NoBom $statePath (($state | ConvertTo-Json -Depth 3) + [Environment]::NewLine)
     Write-Host "[4/4] State saved -> $statePath"
