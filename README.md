@@ -87,4 +87,36 @@ scripts/      构建与图标脚本
 build/        图标源文件（png / ico）
 install*.ps1  安装脚本（打包时随 extraResources 进包）
 codex-skills* 技能库（打包时进包）
+assets/       赞赏与交流群二维码（README 用）
 ```
+
+## License
+
+MIT — 见 [LICENSE](LICENSE)
+
+## 交流群
+
+| ai交流分析群 | ai交流分析群2群 |
+|:---:|:---:|
+| <img src="assets/qq-group-1.jpg" width="260" /> | <img src="assets/qq-group-2.jpg" width="260" /> |
+| 群号：1098743629 | 群号：819678765 |
+
+## 友链
+
+- [LinuxDo](https://linux.do) — 真诚、友善、团结的中文技术社区
+
+## 赞赏
+
+如果这个项目碰巧对你有一点点帮助，愿意的话可以请作者喝杯咖啡……当然，不赞赏也完全没关系，项目会一直免费开源下去的，只是……如果你确实觉得有用的话，哪怕只是一块钱也是莫大的鼓励，真的。
+
+| 微信赞赏 | 支付宝收款 |
+|:---:|:---:|
+| <img src="assets/sponsor-wechat.jpg" width="260" /> | <img src="assets/sponsor-alipay.jpg" width="260" /> |
+
+## 致歉
+
+作者平时上班太忙，无力长期维护开源项目，更新只能随缘，望见谅。感谢每一位用过、提过意见、伸出过援手的朋友。
+
+-------------
+
+打扰了，谢谢看到这里。
