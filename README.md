@@ -6,8 +6,13 @@
 
 ## 这个版本是什么
 
-六个破甲目标（Codex / ZCode / Cursor / Claude / WorkBuddy / DeepSeek Harness），
-每个目标提供各自的全版本列表。
+八个破甲目标（Codex / ZCode / Cursor / Claude / WorkBuddy 国际版 /
+WorkBuddy 国内版 / DeepSeek Harness / 豆包），每个目标提供各自的全版本列表。
+
+WorkBuddy 国际版与国内版是同一个程序的两套发行，数据目录不同
+（`~/.workbuddy-ai` 与 `~/.workbuddy`），可并存，因此拆成两个独立目标、
+各自安装与卸载。豆包的全局记忆不在本地磁盘，注入经 CDP 走客户端自身的
+登录会话写云端接口，脚本会自动把豆包重启到调试模式。
 
 版本标记已经固定在 `variant.json`（`"variant": "free"`），不需要传参。
 
@@ -19,8 +24,10 @@
 | ZCode | `install-zcode.ps1` | `AGENTS.md` + 全局记忆 + 系统提示词 |
 | Cursor | `install-cursor.ps1` | Cursor 全局规则（User Rules） |
 | Claude | `install-claude.ps1` | `~/.claude/CLAUDE.md` + skills |
-| WorkBuddy | `install-workbuddy.ps1` | 云记忆 memoryBlock + MEMORY.md + 技能库 |
+| WorkBuddy 国际版 | `install-workbuddy.ps1` | 云记忆 memoryBlock + MEMORY.md + 技能库（`~/.workbuddy-ai`） |
+| WorkBuddy 国内版 | `install-workbuddy.ps1` | 同上，数据目录 `~/.workbuddy` |
 | DeepSeek Harness | `install-dsh.ps1` | `~/.dsh/AGENTS.md`（DSH 全局记忆）+ `~/.dsh/skills` |
+| 豆包 | `install-doubao.ps1` | 云端全局记忆（CDP 走客户端登录会话写入） |
 
 DeepSeek Harness 用 Claude Code 版提示词（`寒霜v4-claude.md` / `寒霜v3.md`），
 因为 DSH 的 `AGENTS.md` 与 Claude Code 的 `CLAUDE.md` 是同一套 Markdown 记忆规范。
@@ -44,7 +51,14 @@ HS_DEV=1 npx electron .  # 连开发服务器
 npm run dist
 ```
 
-产物落在本文件夹的 `release/`：`寒霜破甲工具-安装版-<版本>.exe`
+产物落在本文件夹的 `release/`：
+
+- `寒霜破甲工具-安装版-<版本>.exe` —— NSIS 安装版
+- `寒霜破甲工具-免安装版-<版本>.exe` —— electron-builder 的 portable 目标，每次启动要自解压到临时目录，开窗慢
+- `寒霜破甲工具-便携版-<版本>.zip` —— 由 `win-unpacked` 直接打包，解压即用，启动约 2 秒（发布用这个）
+
+便携版没有安装器，删文件夹不等于卸载干净：`portable-uninstall.ps1` + 同目录
+`卸载-便携版.bat` 会一并清掉 `%APPDATA%\hanshuang-free`、状态文件和快捷方式。
 
 打包流程里有两处自定义：
 
