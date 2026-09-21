@@ -98,7 +98,7 @@ MIT — 见 [LICENSE](LICENSE)
 
 | ai交流分析群 | ai交流分析群2群 |
 |:---:|:---:|
-| <img src="assets/qq-group-1.jpg" width="260" /> | <img src="assets/qq-group-2.jpg" width="260" /> |
+| <img src="assets/qq-group-1.png" width="260" /> | <img src="assets/qq-group-2.png" width="260" /> |
 | 群号：1098743629 | 群号：819678765 |
 
 ## 友链
